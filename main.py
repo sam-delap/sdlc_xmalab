@@ -105,9 +105,13 @@ def create_xrommtools_project(project_path=os.getcwd(),
         os.remove(os.path.join(project.network.dlc_project_path, "videos", "tmp.avi"))
     except FileNotFoundError:
         pass
+
+    # Ignoring attribute error here because second config may not exist
     try:
         os.remove(os.path.join(project.network.dlc_project_path_cam2, "videos", "tmp.avi"))
     except FileNotFoundError:
+        pass
+    except AttributeError:
         pass
 
 
