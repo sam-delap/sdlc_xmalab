@@ -1,4 +1,4 @@
-'''A Complete Set of User-Friendly Tools for DeepLabCut-XMAlab marker tracking'''
+'''User-Friendly Tools for DeepLabCut-XMAlab marker tracking'''
 # Import packages
 import os
 import math
@@ -10,48 +10,100 @@ from PIL import Image
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
-import deeplabcut
 import xrommtools
 from ruamel.yaml import YAML
 import blend_modes
 import imagehash
+import deeplabcut
+from project import Project
+from network import SingleNetworkConfig, PerCamNetworkConfig, RGBNetworkConfig
+from network import NetworkMode
+from data import AutocorrectSettings, Trial
 
-def create_new_project(working_dir=os.getcwd(), experimenter='NA'):
+
+def create_xrommtools_project(working_dir=os.getcwd(),
+                              experimenter='NA',
+                              network_arch=NetworkMode.SINGLE_NETWORK,
+                              maxiters=150000) -> Project:
     '''Create a new xrommtools project'''
+    # Create a fake video to pass into the deeplabcut workflow
+    blank_frame = np.zeros((480, 480, 3), np.uint8)
+    video_path = os.path.join(working_dir, 'tmp.avi')
+    # Should error if a file called tmp.avi already exists in the folder
+    tmp_vid = cv2.VideoWriter(video_path,
+                              cv2.VideoWriter_fourcc(*'DIVX'),
+                              15,
+                              (480, 480))
+    tmp_vid.write(blank_frame)
+    tmp_vid.release()
+
+    task = os.path.basename(working_dir)
+    create_folder = working_dir + os.path.sep
+    # Doesn't matter if we copy the videos since tmp.avi is deleted
+    dlc_config_path = deeplabcut.create_new_project(task,
+                                                    experimenter,
+                                                    [video_path],
+                                                    create_folder,
+                                                    copy_videos=True)
+
+    # Only supports 2 cameras right now, will add more in the future
+    if network_arch == NetworkMode.PER_CAM:
+        dlc_config_path_cam2 = deeplabcut.create_new_project(f'{task}_cam2',
+                                                             experimenter,
+                                                             [video_path],
+                                                             create_folder,
+                                                             copy_videos=True)
     if not os.path.exists(working_dir):
         os.mkdir(working_dir)
-    dirs = ["trainingdata", "trials", "XMA_files"]
-    for folder in dirs:
-        if not os.path.exists(f'{working_dir}/{folder}'):
-            os.mkdir(f'{working_dir}/{folder}')
 
-    # Create a fake video to pass into the deeplabcut workflow
-    frame = np.zeros((480, 480, 3), np.uint8)
-    out = cv2.VideoWriter(f'{working_dir}/dummy.avi',cv2.VideoWriter_fourcc(*'DIVX'), 15, (480,480))
-    out.write(frame)
-    out.release()
+    config_path = os.path.join(working_dir, 'project_config.yaml')
+    if os.path.exists(config_path):
+        project = Project.from_yaml(config_path)
+    else:
+        match(network_arch):
+            case NetworkMode.SINGLE_NETWORK:
+                network = SingleNetworkConfig(dlc_config_path, maxiters)
+            case NetworkMode.PER_CAM:
+                network = PerCamNetworkConfig(dlc_config_path,
+                                              dlc_config_path_cam2,
+                                              maxiters)
+            case NetworkMode.RGB:
+                network = RGBNetworkConfig(dlc_config_path, maxiters)
+            case _:
+                raise SyntaxError('Invalid value for network arch',
+                                  'Network arch must be one of',
+                                  [arch.value for arch in NetworkMode])
 
-    # Create a new project
-    yaml = YAML()
-    task = os.path.basename(working_dir)
-    path_config_file = deeplabcut.create_new_project(task, experimenter,
-        [os.path.join(working_dir, "dummy.avi")], working_dir + os.path.sep, copy_videos=True)
-
+        project = Project(config_path,
+                          experimenter,
+                          network,
+                          AutocorrectSettings())
     if isinstance(path_config_file, str):
         template = f"""
+    # Project vars
     task: {task}
     experimenter: {experimenter}
-    working_dir: {working_dir}
-    path_config_file: {path_config_file}
-    dataset_name: MyData
-    nframes: 0
+    config_path: {config_path}
+
+    # Dataset vars
+    training_dataset_name: MyData
+
+    # Per-trial vars
+    num_tracked_frames: 0
+
+    # Network vars
+    dlc_config_path: {dlc_config_path}
+    (only when doing a per cam)
+    dlc_config_path_cam#:
+
     maxiters: 150000
-    tracking_threshold: 0.1 # Fraction of total frames included in training sample
     tracking_mode: 2D
+
+    (only when doing an RGB)
     swapped_markers: false
     crossed_markers: false
 
-# Image Processing Vars
+    # Autocorrect vars
     search_area: 15
     threshold: 8
     krad: 17
@@ -60,36 +112,33 @@ def create_new_project(working_dir=os.getcwd(), experimenter='NA'):
     blur_wt: -2.9
     gamma: 0.1
 
-# Autocorrect() Testing Vars
-
+    # Use when testing autocorrrect filtering
     trial_name: your_trial_here
     cam: cam1
     frame_num: 1
     marker: your_marker_here
-    test_autocorrect: false # Set to true if you want to see autocorrect's output in Jupyter
+    test_autocorrect: false
 
-# Video Similarity Analysis Vars
-    cam1s_are_the_same_view: true    
         """
+    dlc_project_path = dlc_config_path[:dlc_config_path.find("config")]
+    project.to_yaml()
+    # Remove auto-generated labeled data and dummy video
+    try:
+        os.rmdir(os.path.join(dlc_project_path, "labeled-data", "tmp"))
+    except FileNotFoundError:
+        pass
 
-        tmp = yaml.load(template)
+    try:
+        os.remove(os.path.join(dlc_project_path, "videos", "tmp.avi"))
+    except FileNotFoundError:
+        pass
 
-        with open(f"{working_dir}/project_config.yaml", 'w') as config:
-            yaml.dump(tmp, config)
+    os.remove(video_path)
 
-        try:
-            os.rmdir(path_config_file[:path_config_file.find("config")] + os.path.join("labeled-data","dummy"))
-        except FileNotFoundError:
-            pass
-
-        try:
-            os.remove(os.path.join(path_config_file[:path_config_file.find("config")], "videos", "dummy.avi"))
-        except FileNotFoundError:
-            pass
-    
-    os.remove(f'{working_dir}/dummy.avi')
+    return project
 
 
+# Will recycle for error checking during config load steps
 def load_project(working_dir=os.getcwd()):
     '''Load an existing project (only used internally/in testing)'''
     # Open the config
@@ -170,28 +219,50 @@ def load_project(working_dir=os.getcwd()):
 
     return project
 
-def train_network(working_dir=os.getcwd()):
-    '''Start training xrommtools-compatible data'''
-    project = load_project(working_dir=working_dir)
-    data_path = os.path.join(working_dir, 'trainingdata')
 
-    if project['tracking_mode'] == '2D':
-        try:
-            xrommtools.xma_to_dlc(project['path_config_file'],
-            data_path,
-            project['dataset_name'],
-            project['experimenter'],
-            project['nframes'])
-        except UnboundLocalError:
-            pass
-    else:
-        trials = [folder for folder in os.listdir(data_path) if os.path.isdir(os.path.join(data_path, folder)) and not folder.startswith('.')]
-        for trial in trials:
-            merge_rgb(f'{data_path}/{trial}')
-            substitute_data_relpath = "labeled-data/" + project['dataset_name']
-            substitute_data_abspath = os.path.join(os.path.split(project['path_config_file'])[0],substitute_data_relpath)
-            extract_matched_frames_rgb(project, f'{data_path}/{trial}', substitute_data_abspath, range(1, project['nframes'] + 1))
-            splice_xma_to_dlc(project, f'{data_path}/{trial}', swap=project['swapped_markers'], cross=project['crossed_markers'])
+def create_training_dataset(project: Project, dataset_name):
+    '''Create a training dataset for xrommtools data'''
+
+    for folder in os.listdir(project.training_data_path):
+        # Skip hidden files/folders
+        if folder.statswith('.'):
+            continue
+
+        trial_path = os.path.join(project.training_data_path, folder)
+        if os.path.isdir(trial_path):
+            trial = Trial(trial_path, project.network.network_arch)
+        else:
+            raise NotADirectoryError('Trials must each be put in a folder')
+
+    match project.network.network_arch:
+        case NetworkMode.SINGLE_NETWORK:
+            trial.trial.xma_to_dlc(project.network.dlc_config_path,
+                                   dataset_name,
+                                   project.experimenter)
+        case NetworkMode.PER_CAM:
+            trial.trial.xma_to_dlc(project.network.dlc_config_path,
+                                   project.network.dlc_config_path_cam2,
+                                   dataset_name,
+                                   project.experimenter)
+        case NetworkMode.RGB:
+            raise NotImplementedError('xma_to_dlc for RGB')
+
+        case _:
+            raise SyntaxError('Invalid value for network arch. Check config.')
+
+    project.network.create_training_dataset()
+
+
+def train_network(project: Project):
+    '''Start training xrommtools-compatible data'''
+    # Get all trial folders, ignoring hidden folders
+    trials = [folder for folder in os.listdir(data_path) if os.path.isdir(os.path.join(data_path, folder)) and not folder.startswith('.')]
+    for trial in trials:
+        merge_rgb(f'{data_path}/{trial}')
+        substitute_data_relpath = "labeled-data/" + project['dataset_name']
+        substitute_data_abspath = os.path.join(os.path.split(project['path_config_file'])[0],substitute_data_relpath)
+        extract_matched_frames_rgb(project, f'{data_path}/{trial}', substitute_data_abspath, range(1, project['nframes'] + 1))
+        splice_xma_to_dlc(project, f'{data_path}/{trial}', swap=project['swapped_markers'], cross=project['crossed_markers'])
 
     deeplabcut.create_training_dataset(project['path_config_file'])
     deeplabcut.train_network(project['path_config_file'], maxiters=project['maxiters'])
@@ -620,7 +691,10 @@ def splice_xma_to_dlc(project, trial_path, outlier_mode=False, swap=False, cross
             df_sw[swap_name_y1] = df[name_y2]
             df_sw[swap_name_x2] = df[name_x2]
             df_sw[swap_name_y2] = df[name_y1]
-            swaps.extend([swap_name_x1,swap_name_y1,swap_name_x2,swap_name_y2])
+            swaps.extend([swap_name_x1,
+                          swap_name_y1,
+                          swap_name_x2,
+                          swap_name_y2])
         df = df.join(df_sw)
         print(swaps)
     if cross:

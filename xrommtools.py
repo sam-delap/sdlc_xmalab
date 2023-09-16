@@ -1,6 +1,6 @@
 """
 XROMM Tools for DeepLabCut
-Developed by J.D. Laurence-Chasen
+Base functionality developed by J.D. Laurence-Chasen
 
 Functions:
 
@@ -8,7 +8,6 @@ xma_to_dlc: create DeepLabCut training dataset from data tracked in XMALab
 analyze_xromm_videos: Predict 2D points for novel trials
 dlc_to_xma: convert output of DeepLabCut to XMALab format 2D points file
 add_frames: Add new frames corrected/tracked in XMALab to an existing training dataset
-
 """
 
 
@@ -17,7 +16,7 @@ import pandas as pd
 import numpy as np
 import cv2
 import random
-from deeplabcut.pose_estimation_tensorflow.predict_videos import analyze_videos 
+from deeplabcut.pose_estimation_tensorflow.predict_videos import analyze_videos
 
 def xma_to_dlc(path_config_file,data_path,dataset_name,scorer,nframes,nnetworks = 1, path_config_file_cam2 = []):
     config = path_config_file[:-12]
