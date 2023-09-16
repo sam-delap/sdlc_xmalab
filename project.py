@@ -70,7 +70,7 @@ class Project():
         with open(config_path, "r") as f:
             d = yaml.load(f)
 
-        match(d['network']['arch']):
+        match(d['network']['network_arch']):
             case NetworkMode.SINGLE_NETWORK:
                 network = SingleNetworkConfig(d['network']['dlc_config_path'],
                                               d['network']['max_iters'])
