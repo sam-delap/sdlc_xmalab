@@ -3,31 +3,65 @@ import os
 import cv2
 import pandas as pd
 import numpy as np
+import abc
+from abc import ABC, abstractmethod
 import blend_modes
+from enum import Enum
 from network import NetworkMode
 
+
+class RGBStrategy(Enum):
+    '''Declares what to do with the blue channel of the merged video'''
+    EMPTY = 'empty'
+    DIFF = 'diff'
+    MULTIPLY = 'multiply'
 
 class AutocorrectSettings():
     pass
 
 
-class Trial():
-    def __init__(self, trial_path: str, network_arch: NetworkMode):
-        match(network_arch):
-            case NetworkMode.SINGLE_NETWORK:
-                self.trial = SingleNetworkTrial(trial_path)
-            case NetworkMode.PER_CAM:
-                self.trial = PerCamNetworkTrial(trial_path)
-            case NetworkMode.RGB:
-                self.trial = RGBNetworkTrial(trial_path)
+class Trial(ABC):
+    @abc.abstractproperty
+    def trial_path(self):
+       pass 
 
+    @abc.abstractproperty
+    def trial_name(self):
+        pass
 
-# Each trial class should have
-# init
-# dlc_to_xma
-# xma_to_dlc
-# update_h5
-class XrommToolsTrial():
+    @abc.abstractproperty
+    def cam1_path(self):
+        pass
+
+    @abc.abstractproperty
+    def cam2_path(self):
+        pass
+
+    @abc.abstractproperty
+    def csv_path(self):
+        pass
+
+    @abc.abstractproperty
+    def csv(self):
+        pass
+
+    @abc.abstractproperty
+    def bodyparts(self):
+        pass
+
+    @abstractmethod
+    def xma_to_dlc(self):
+        pass
+
+    @abstractmethod
+    def dlc_to_xma(self):
+        pass
+
+    @abstractmethod
+    def update_h5(self):
+        pass
+
+class XrommToolsTrial(Trial):
     '''Credit to J.D. Laurence-Chasen for the initial design'''
     @property
     def trial_path(self):
@@ -338,8 +372,8 @@ class RGBNetworkTrial(XrommToolsTrial):
 
     def __init__(self,
                  trial_path: str,
-                 codec: str,
-                 strategy: str):
+                 codec='avc1',
+                 strategy=ExtraFrameStrategy.EMPTY):
         super().__init__(trial_path)
         self._rgb_path = os.path.join(self.trial_path,
                                       self.trial_name + "_rgb.avi")
@@ -347,8 +381,8 @@ class RGBNetworkTrial(XrommToolsTrial):
 
     # Change default strategy to whichever one performs the best
     def merge_rgb(self,
-                  codec='avc1',
-                  strategy=None):
+                  codec,
+                  strategy):
         '''Creates a merged RGB video from cam1/2 videos'''
         print('Creating merged video for trial', self.trial_name)
         if os.path.exists(os.path.join(self.rgb_path)):

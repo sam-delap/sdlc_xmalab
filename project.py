@@ -13,9 +13,7 @@ class Project():
                  task: str,
                  config_path: str,
                  experimenter: str,
-                 network: (SingleNetworkConfig,
-                           PerCamNetworkConfig,
-                           RGBNetworkConfig),
+                 network: SingleNetworkConfig | PerCamNetworkConfig | RGBNetworkConfig,
                  autocorrect_settings=AutocorrectSettings()):
         '''Create and initialize a new xrommtools project'''
         self._task = task
@@ -33,14 +31,14 @@ class Project():
         return self._task
 
     @property
-    def config_file(self):
-        return self._config_file
+    def config_path(self):
+        return self._config_path
 
-    @config_file.setter
-    def config_file(self, value):
+    @config_path.setter
+    def config_path(self, value):
         if not os.path.exists(value):
             raise FileNotFoundError(f"Couldn't find config at {value}")
-        pass  # Need to update other refs to config file as well
+        raise NotImplementedError('Need to update all other config refs')
         self.update_config_refs()
 
     @property
@@ -90,10 +88,10 @@ class Project():
                                   'Network arch must be one of',
                                   [arch.value for arch in NetworkMode])
 
-        return cls(d['project']['config_path'],
+        return cls(d['project']['task'],
+                   d['project']['config_path'],
                    d['project']['experimenter'],
-                   network,
-                   AutocorrectSettings(d['autocorrect']))
+                   network)
 
     def to_yaml(self):
         '''Save config to a file'''
