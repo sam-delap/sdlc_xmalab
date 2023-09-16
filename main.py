@@ -21,25 +21,24 @@ from network import NetworkMode
 from data import AutocorrectSettings, Trial
 
 
-def create_xrommtools_project(working_dir=os.getcwd(),
+def create_xrommtools_project(project_path=os.getcwd(),
                               experimenter='NA',
                               network_arch=NetworkMode.SINGLE_NETWORK,
                               maxiters=150000,
                               crossed_markers=False,
                               swapped_markers=False) -> Project:
     '''Create a new xrommtools project'''
-    if not os.path.exists(working_dir):
-        os.mkdir(working_dir)
+    if not os.path.exists(project_path):
+        os.mkdir(project_path)
 
     # Updating defaults for OOP/OS-specific actions
-    working_dir = os.path.normpath(working_dir)
+    project_path = os.path.normpath(project_path)
     network_arch = NetworkMode(network_arch)
 
     # Create a fake video to pass into the deeplabcut workflow
     blank_frame = np.zeros((480, 480, 3), np.uint8)
-    video_path = os.path.join(working_dir, 'tmp.avi')
+    video_path = os.path.join(project_path, 'tmp.avi')
 
-    print(video_path)
     # Should error if a file called tmp.avi already exists in the folder
     tmp_vid = cv2.VideoWriter(video_path,
                               cv2.VideoWriter_fourcc(*'DIVX'),
@@ -49,8 +48,8 @@ def create_xrommtools_project(working_dir=os.getcwd(),
     tmp_vid.write(blank_frame)
     tmp_vid.release()
 
-    task = os.path.basename(working_dir)
-    create_folder = working_dir + os.path.sep
+    task = os.path.basename(project_path)
+    create_folder = project_path + os.path.sep
     # Doesn't matter if we copy the videos since tmp.avi is deleted
     dlc_config_path = deeplabcut.create_new_project(task,
                                                     experimenter,
@@ -59,7 +58,7 @@ def create_xrommtools_project(working_dir=os.getcwd(),
                                                     copy_videos=True)
 
 
-    config_path = os.path.join(working_dir, 'project_config.yaml')
+    config_path = os.path.join(project_path, 'project_config.yaml')
     if os.path.exists(config_path):
         project = Project.from_yaml(config_path)
     else:
@@ -85,6 +84,7 @@ def create_xrommtools_project(working_dir=os.getcwd(),
                                   + ' '.join([arch.value for arch in NetworkMode]))
 
         project = Project(task,
+                          project_path,
                           config_path,
                           experimenter,
                           network,
@@ -113,10 +113,10 @@ def create_xrommtools_project(working_dir=os.getcwd(),
 
 
 # Will recycle for error checking during config load steps
-def load_project(working_dir=os.getcwd()):
+def load_project(project_path=os.getcwd()):
     '''Load an existing project (only used internally/in testing)'''
     # Open the config
-    with open(os.path.join(working_dir, "project_config.yaml"), 'r') as config_file:
+    with open(os.path.join(project_path, "project_config.yaml"), 'r') as config_file:
         yaml = YAML()
         project = yaml.load(config_file)
 
@@ -127,7 +127,7 @@ def load_project(working_dir=os.getcwd()):
 
     # Load trial CSV
     try:
-        training_data_path = os.path.join(project['working_dir'], "trainingdata")
+        training_data_path = os.path.join(project['project_path'], "trainingdata")
         trial = [folder for folder in os.listdir(training_data_path) if os.path.isdir(os.path.join(training_data_path, folder)) and not folder.startswith('.')][0]
         trial_csv = pd.read_csv(training_data_path + '/' + trial + '/' + trial + '.csv')
     except FileNotFoundError as e:
@@ -172,9 +172,9 @@ def load_project(working_dir=os.getcwd()):
         dlc_yaml = dlc_config_loader.load(dlc_config)
 
         if dlc_yaml['bodyparts'] == default_bodyparts:
-            dlc_yaml['bodyparts'] = get_bodyparts_from_xma(os.path.join(working_dir, 'trainingdata', trial), project['tracking_mode'], project['swapped_markers'], project['crossed_markers'])
+            dlc_yaml['bodyparts'] = get_bodyparts_from_xma(os.path.join(project_path, 'trainingdata', trial), project['tracking_mode'], project['swapped_markers'], project['crossed_markers'])
 
-        elif dlc_yaml['bodyparts'] != get_bodyparts_from_xma(os.path.join(working_dir, 'trainingdata', trial), project['tracking_mode'], project['swapped_markers'], project['crossed_markers']):
+        elif dlc_yaml['bodyparts'] != get_bodyparts_from_xma(os.path.join(project_path, 'trainingdata', trial), project['tracking_mode'], project['swapped_markers'], project['crossed_markers']):
             raise SyntaxError('XMAlab CSV marker names are different than DLC bodyparts.')
 
     with open(project['path_config_file'], 'w') as dlc_config:
@@ -188,7 +188,7 @@ def load_project(working_dir=os.getcwd()):
             raise SyntaxError('Please specify a marker to test autocorrect() with')
 
     # Update changed attributes to match in the file
-    with open(os.path.join(working_dir, 'project_config.yaml'), 'w') as file:
+    with open(os.path.join(project_path, 'project_config.yaml'), 'w') as file:
         yaml.dump(project, file)
 
     return project
@@ -241,16 +241,16 @@ def train_network(project: Project):
     deeplabcut.create_training_dataset(project['path_config_file'])
     deeplabcut.train_network(project['path_config_file'], maxiters=project['maxiters'])
 
-def analyze_videos(working_dir=os.getcwd()):
+def analyze_videos(project_path=os.getcwd()):
     '''Analyze videos with a pre-existing network'''
     # Open the config
-    project = load_project(working_dir)
+    project = load_project(project_path)
 
     # Error if trials directory is empty
-    new_data_path = os.path.join(working_dir, 'trials')
+    new_data_path = os.path.join(project_path, 'trials')
     trials = [folder for folder in os.listdir(new_data_path) if os.path.isdir(os.path.join(new_data_path, folder)) and not folder.startswith('.')]
     if len(trials) <= 0:
-        raise FileNotFoundError(f'Empty trials directory found. Please put trials to be analyzed after training into the {working_dir}/trials folder')
+        raise FileNotFoundError(f'Empty trials directory found. Please put trials to be analyzed after training into the {project_path}/trials folder')
 
     # Establish project vars
     yaml = YAML()
@@ -262,21 +262,21 @@ def analyze_videos(working_dir=os.getcwd()):
         xrommtools.analyze_xromm_videos(project['path_config_file'], new_data_path, iteration)
     else:
         for trial in trials:
-            video_path = f'{working_dir}/trials/{trial}/{trial}_rgb.avi'
-            destfolder = f'{working_dir}/trials/{trial}/it{iteration}/'
+            video_path = f'{project_path}/trials/{trial}/{trial}_rgb.avi'
+            destfolder = f'{project_path}/trials/{trial}/it{iteration}/'
             deeplabcut.analyze_videos(project['path_config_file'], video_path, destfolder=destfolder, save_as_csv=True)
             split_dlc_to_xma(project, trial)
 
-def autocorrect_trial(working_dir=os.getcwd()): #try 0.05 also
+def autocorrect_trial(project_path=os.getcwd()): #try 0.05 also
     '''Do XMAlab-style autocorrect on the tracked beads'''
     # Open the config
-    project = load_project(working_dir)
+    project = load_project(project_path)
 
     # Error if trials directory is empty
-    new_data_path = os.path.join(working_dir, 'trials')
+    new_data_path = os.path.join(project_path, 'trials')
     trials = [folder for folder in os.listdir(new_data_path) if os.path.isdir(os.path.join(new_data_path, folder)) and not folder.startswith('.')]
     if len(trials) <= 0:
-        raise FileNotFoundError(f'Empty trials directory found. Please put trials to be analyzed after training into the {working_dir}/trials folder')
+        raise FileNotFoundError(f'Empty trials directory found. Please put trials to be analyzed after training into the {project_path}/trials folder')
 
     # Establish project vars
     yaml = YAML()
@@ -739,7 +739,7 @@ def extract_matched_frames_rgb(project, trial_path, labeled_data_path, indices, 
     '''Given a list of frame indices and a project path, produce a folder (in labeled-data) of matching frame pngs per source video.
     Optionally, compress the output PNGs. Factor ranges from 0 (no compression) to 9 (most compression)'''
     extracted_frames = []
-    trainingdata_path = project['working_dir'] + '/trainingdata'
+    trainingdata_path = project['project_path'] + '/trainingdata'
     trial_name = os.path.basename(os.path.normpath(trial_path))
     video_path = f'{trainingdata_path}/{trial_name}/{trial_name}_rgb.avi'
     labeled_data_path = os.path.split(project['path_config_file'])[0] + '/labeled-data/' + project['task']
@@ -790,7 +790,7 @@ def split_dlc_to_xma(project, trial, save_hdf=True):
     with open(project['path_config_file']) as dlc_config:
         dlc = yaml.load(dlc_config)
     iteration = dlc['iteration']
-    trial_path = project['working_dir'] + f'/trials/{trial}'
+    trial_path = project['project_path'] + f'/trials/{trial}'
 
     rgb_parts = get_bodyparts_from_xma(trial_path, mode='rgb')
     for part in rgb_parts:
@@ -818,12 +818,12 @@ def split_dlc_to_xma(project, trial, save_hdf=True):
         tracked_hdf = os.path.splitext(csv_path)[0]+'.h5'
         df.to_hdf(tracked_hdf, 'df_with_missing', format='table', mode='w', nan_rep='NaN')
 
-def analyze_video_similarity_project(working_dir):
+def analyze_video_similarity_project(project_path):
     '''Analyze all videos in a project and take their average similar. This is dangerous, as it will assume that all cam1/cam2 pairs match
     or don't match!'''
-    project = load_project(working_dir)
+    project = load_project(project_path)
     similarity_score = {}
-    new_data_path = os.path.join(working_dir, 'trials')
+    new_data_path = os.path.join(project_path, 'trials')
     list_of_trials = [folder for folder in os.listdir(new_data_path) if os.path.isdir(os.path.join(new_data_path, folder)) and not folder.startswith('.')]
     yaml = YAML()
 
@@ -831,21 +831,21 @@ def analyze_video_similarity_project(working_dir):
     for trial1, trial2 in trial_perms:
         project['trial_1_name'] = trial1
         project['trial_2_name'] = trial2
-        with open(os.path.join(working_dir, 'project_config.yaml'), 'w') as file:
+        with open(os.path.join(project_path, 'project_config.yaml'), 'w') as file:
             yaml.dump(project, file)
-        similarity_score[(trial1, trial2)] = analyze_video_similarity_trial(working_dir)
+        similarity_score[(trial1, trial2)] = analyze_video_similarity_trial(project_path)
     
     return similarity_score
 
-def analyze_video_similarity_trial(working_dir):
+def analyze_video_similarity_trial(project_path):
     '''Analyze the average similarity between trials using image hashing'''
-    project = load_project(working_dir)
+    project = load_project(project_path)
 
     # Find videos for each trial
-    trial1_cam1 = cv2.VideoCapture(os.path.join(f'{working_dir}/trials', project['trial_1_name'], project['trial_1_name'] + '_cam1.avi'))
-    trial2_cam1 = cv2.VideoCapture(os.path.join(f'{working_dir}/trials', project['trial_2_name'], project['trial_2_name'] + '_cam1.avi'))
-    trial1_cam2 = cv2.VideoCapture(os.path.join(f'{working_dir}/trials', project['trial_1_name'], project['trial_1_name'] + '_cam2.avi'))
-    trial2_cam2 = cv2.VideoCapture(os.path.join(f'{working_dir}/trials', project['trial_2_name'], project['trial_2_name'] + '_cam2.avi'))
+    trial1_cam1 = cv2.VideoCapture(os.path.join(f'{project_path}/trials', project['trial_1_name'], project['trial_1_name'] + '_cam1.avi'))
+    trial2_cam1 = cv2.VideoCapture(os.path.join(f'{project_path}/trials', project['trial_2_name'], project['trial_2_name'] + '_cam1.avi'))
+    trial1_cam2 = cv2.VideoCapture(os.path.join(f'{project_path}/trials', project['trial_1_name'], project['trial_1_name'] + '_cam2.avi'))
+    trial2_cam2 = cv2.VideoCapture(os.path.join(f'{project_path}/trials', project['trial_2_name'], project['trial_2_name'] + '_cam2.avi'))
     
     # Compare hashes
     if project['cam1s_are_the_same_view']:
@@ -981,11 +981,11 @@ def compare_hash_sets(hashes1, hashes2):
 
     return hash1_dif, hash2_dif
 
-def analyze_marker_similarity_project(working_dir):
+def analyze_marker_similarity_project(project_path):
     '''Analyze all videos in a project and get their average rhythmicity. This assumes that all cam1/2 pairs are either the same or different!'''
-    project = load_project(working_dir)
+    project = load_project(project_path)
     marker_similarity = {}
-    new_data_path = os.path.join(working_dir, 'trials')
+    new_data_path = os.path.join(project_path, 'trials')
     list_of_trials = [folder for folder in os.listdir(new_data_path) if os.path.isdir(os.path.join(new_data_path, folder)) and not folder.startswith('.')]
     yaml = YAML()
 
@@ -993,26 +993,8 @@ def analyze_marker_similarity_project(working_dir):
     for trial1, trial2 in trial_perms:
         project['trial_1_name'] = trial1
         project['trial_2_name'] = trial2
-        with open(os.path.join(working_dir, 'project_config.yaml'), 'w') as file:
+        with open(os.path.join(project_path, 'project_config.yaml'), 'w') as file:
             yaml.dump(project, file)
-        marker_similarity[(trial1, trial2)] = abs(analyze_marker_similarity_trial(working_dir))
+        marker_similarity[(trial1, trial2)] = abs(analyze_marker_similarity_trial(project_path))
     
-    return marker_similarity
-
-def analyze_marker_similarity_trial(working_dir):
-    '''Analyze marker similarity for a pair of trials. Returns the mean difference for paired marker positions (X - X, Y - Y for each marker)'''
-    project = load_project(working_dir)
-
-    # Find CSVs for each trial
-    trial1_path = os.path.join(f'{working_dir}/trials', project['trial_1_name'])
-    trial2_path = os.path.join(f'{working_dir}/trials', project['trial_2_name'])
-    
-    # Get a list of markers that each trial have in commmon
-    markers_in_common = [marker for marker in get_bodyparts_from_xma(trial1_path, mode='rgb', split_markers=False, crossed_markers=False) if marker in get_bodyparts_from_xma(trial2_path, mode='rgb', split_markers=False, crossed_markers=False)]
-    bodyparts_xy = [f'{marker}_X' for marker in markers_in_common] + [f'{marker}_Y' for marker in markers_in_common]
-    trial1_csv = pd.read_csv(os.path.join(trial1_path, project['trial_1_name'] + '.csv'))
-    trial2_csv = pd.read_csv(os.path.join(trial2_path, project['trial_2_name'] + '.csv'))
-
-    marker_similarity = sum([(trial1_csv[marker] - trial2_csv[marker]).sum() / (len(trial1_csv[marker]) + len(trial2_csv[marker])) for marker in bodyparts_xy]) / len(bodyparts_xy)
-
     return marker_similarity
