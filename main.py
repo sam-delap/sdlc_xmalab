@@ -28,17 +28,24 @@ def create_xrommtools_project(working_dir=os.getcwd(),
                               crossed_markers=False,
                               swapped_markers=False) -> Project:
     '''Create a new xrommtools project'''
+    if not os.path.exists(working_dir):
+        os.mkdir(working_dir)
+
     # Updating defaults for OOP/OS-specific actions
     working_dir = os.path.normpath(working_dir)
     network_arch = NetworkMode(network_arch)
+
     # Create a fake video to pass into the deeplabcut workflow
     blank_frame = np.zeros((480, 480, 3), np.uint8)
     video_path = os.path.join(working_dir, 'tmp.avi')
+
+    print(video_path)
     # Should error if a file called tmp.avi already exists in the folder
     tmp_vid = cv2.VideoWriter(video_path,
                               cv2.VideoWriter_fourcc(*'DIVX'),
                               15,
                               (480, 480))
+    tmp_vid.write(blank_frame)
     tmp_vid.write(blank_frame)
     tmp_vid.release()
 
@@ -51,8 +58,6 @@ def create_xrommtools_project(working_dir=os.getcwd(),
                                                     create_folder,
                                                     copy_videos=True)
 
-    if not os.path.exists(working_dir):
-        os.mkdir(working_dir)
 
     config_path = os.path.join(working_dir, 'project_config.yaml')
     if os.path.exists(config_path):
@@ -84,6 +89,12 @@ def create_xrommtools_project(working_dir=os.getcwd(),
                           experimenter,
                           network,
                           AutocorrectSettings())
+
+    if not os.path.exists(project.training_data_path):
+        os.mkdir(project.training_data_path)
+    if not os.path.exists(project.novel_data_path):
+        os.mkdir(project.novel_data_path)
+
     project.to_yaml()
     # Remove auto-generated labeled data and dummy video
     try:
@@ -96,7 +107,7 @@ def create_xrommtools_project(working_dir=os.getcwd(),
     except FileNotFoundError:
         pass
 
-    os.remove(video_path)
+    # os.remove(video_path)
 
     return project
 

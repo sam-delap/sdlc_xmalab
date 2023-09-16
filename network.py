@@ -9,7 +9,7 @@ import deeplabcut
 class NetworkMode(Enum):
     '''Declares network modes'''
     SINGLE_NETWORK = 'single'
-    PER_CAM = 'each'
+    PER_CAM = 'per cam'
     RGB = 'rgb'
 
 
