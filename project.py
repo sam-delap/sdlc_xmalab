@@ -11,17 +11,19 @@ class Project():
 
     def __init__(self,
                  task: str,
+                 project_path: str,
                  config_path: str,
                  experimenter: str,
                  network: SingleNetworkConfig | PerCamNetworkConfig | RGBNetworkConfig,
                  autocorrect_settings=AutocorrectSettings()):
         '''Create and initialize a new xrommtools project'''
         self._task = task
+        self._project_path = project_path
         self._config_path = config_path
         self.experimenter = experimenter
-        self._training_data_path = os.path.join(self.config_path,
+        self._training_data_path = os.path.join(self.project_path,
                                                 'trainingdata')
-        self._novel_data_path = os.path.join(self.config_path,
+        self._novel_data_path = os.path.join(self.project_path,
                                              'trials')
         self._network = network
         self._autocorrect_settings = autocorrect_settings
@@ -29,6 +31,10 @@ class Project():
     @property
     def task(self):
         return self._task
+
+    @property
+    def project_path(self):
+        return self._project_path
 
     @property
     def config_path(self):
@@ -89,6 +95,7 @@ class Project():
                                   [arch.value for arch in NetworkMode])
 
         return cls(d['project']['task'],
+                   d['project']['project_path'],
                    d['project']['config_path'],
                    d['project']['experimenter'],
                    network)
@@ -102,6 +109,7 @@ class Project():
         else:
             d = {}
         d['project'] = {'task': self.task,
+                        'project_path':self.project_path,
                         'config_path': self.config_path,
                         'experimenter': self.experimenter}
         d['network'] = self.network.to_yaml()
