@@ -28,8 +28,10 @@ def create_xrommtools_project(working_dir=os.getcwd(),
                               crossed_markers=False,
                               swapped_markers=False) -> Project:
     '''Create a new xrommtools project'''
-    # Create a fake video to pass into the deeplabcut workflow
+    # Updating defaults for OOP/OS-specific actions
     working_dir = os.path.normpath(working_dir)
+    network_arch = NetworkMode(network_arch)
+    # Create a fake video to pass into the deeplabcut workflow
     blank_frame = np.zeros((480, 480, 3), np.uint8)
     video_path = os.path.join(working_dir, 'tmp.avi')
     # Should error if a file called tmp.avi already exists in the folder
@@ -49,16 +51,6 @@ def create_xrommtools_project(working_dir=os.getcwd(),
                                                     create_folder,
                                                     copy_videos=True)
 
-    # Only supports 2 cameras right now, will add more in the future
-    if network_arch == NetworkMode.PER_CAM.value:
-        dlc_config_path_cam2 = deeplabcut.create_new_project(f'{task}_cam2',
-                                                             experimenter,
-                                                             [video_path],
-                                                             create_folder,
-                                                             copy_videos=True)
-        network = PerCamNetworkConfig(dlc_config_path,
-                                      dlc_config_path_cam2,
-                                      maxiters)
     if not os.path.exists(working_dir):
         os.mkdir(working_dir)
 
@@ -67,10 +59,21 @@ def create_xrommtools_project(working_dir=os.getcwd(),
         project = Project.from_yaml(config_path)
     else:
         match(network_arch):
-            case NetworkMode.SINGLE_NETWORK.value:
+            case NetworkMode.SINGLE_NETWORK:
                 network = SingleNetworkConfig(dlc_config_path, maxiters)
-            case NetworkMode.RGB.value:
+            case NetworkMode.RGB:
                 network = RGBNetworkConfig(dlc_config_path, maxiters, crossed_markers, swapped_markers)
+            case NetworkMode.PER_CAM:
+                # Only supports 2 cameras right now, will add more in the future
+                dlc_config_path_cam2 = deeplabcut.create_new_project(f'{task}_cam2',
+                                                                     experimenter,
+                                                                     [video_path],
+                                                                     create_folder,
+                                                                     copy_videos=True)
+                network = PerCamNetworkConfig(dlc_config_path,
+                                              dlc_config_path_cam2,
+                                              maxiters)
+
             case _:
                 raise SyntaxError('Invalid value for network arch'
                                   + 'Network arch must be one of'
