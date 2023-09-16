@@ -1,5 +1,4 @@
 '''User-Friendly Tools for DeepLabCut-XMAlab marker tracking'''
-# Import packages
 import os
 import math
 import warnings
@@ -107,7 +106,7 @@ def create_xrommtools_project(project_path=os.getcwd(),
     except FileNotFoundError:
         pass
 
-    # os.remove(video_path)
+    os.remove(video_path)
 
     return project
 
