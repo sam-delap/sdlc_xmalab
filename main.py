@@ -84,12 +84,12 @@ def create_xrommtools_project(working_dir=os.getcwd(),
     project.to_yaml()
     # Remove auto-generated labeled data and dummy video
     try:
-        os.rmdir(os.path.join(dlc_project_path, "labeled-data", "tmp"))
+        os.rmdir(os.path.join(project.network.dlc_project_path, "labeled-data", "tmp"))
     except FileNotFoundError:
         pass
 
     try:
-        os.remove(os.path.join(dlc_project_path, "videos", "tmp.avi"))
+        os.remove(os.path.join(project.network.dlc_project_path, "videos", "tmp.avi"))
     except FileNotFoundError:
         pass
 

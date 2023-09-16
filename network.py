@@ -26,6 +26,7 @@ class SingleNetworkConfig():
 
         self._network_arch = 'single'
         self.dlc_config_path = dlc_config_path
+        self.dlc_project_path = dlc_config_path[:dlc_config_path.find('config')]
         self.max_iters = max_iters
     pass
 
@@ -49,7 +50,9 @@ class PerCamNetworkConfig():
                  max_iters: int):
 
         self.dlc_config_path = dlc_config_path
+        self.dlc_project_path = dlc_config_path[:dlc_config_path.find('config')]
         self.dlc_config_path_cam2 = dlc_config_path_cam2
+        self.dlc_project_path_cam2 = dlc_config_path_cam2[:dlc_config_path_cam2.find('config')]
         self.max_iters = max_iters
 
     def to_yaml(self):
@@ -75,6 +78,7 @@ class RGBNetworkConfig():
                  crossed_markers: bool):
 
         self.dlc_config_path = dlc_config_path
+        self.dlc_project_path = dlc_config_path[:dlc_config_path.find('config')]
         self.max_iters = max_iters
         self.swapped_markers = swapped_markers
         self.crossed_markers = crossed_markers

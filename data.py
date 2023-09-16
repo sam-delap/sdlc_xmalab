@@ -7,6 +7,7 @@ import abc
 from abc import ABC, abstractmethod
 import blend_modes
 from enum import Enum
+from ruamel.yaml import YAML
 from network import NetworkMode
 
 
@@ -17,7 +18,72 @@ class RGBStrategy(Enum):
     MULTIPLY = 'multiply'
 
 class AutocorrectSettings():
-    pass
+    '''Defines all possible settings for autocorrect'''
+    def __init__(self,
+                 search_radius=15,
+                 threshold=8,
+                 krad=17,
+                 gsigma=10,
+                 img_wt=3.6,
+                 blur_wt=-2.9,
+                 gamma=0.1,
+                 testing=False,
+                 trial_name='Your Trial Here',
+                 cam='cam1',
+                 marker='Your Marker Here',
+                 frame_number=1):
+        if search_radius < 10:
+            raise ValueError('Search radius must be at least 10 pixels')
+        if threshold < 0 or threshold > 255:
+            raise ValueError('Binary threshold must be a grayscale value'
+                             + 'between 0 and 255')
+        self.search_radius = search_radius
+        self.threshold = threshold
+        self.krad = krad
+        self.gsigma = gsigma
+        self.img_wt = img_wt
+        self.blur_wt = blur_wt
+        self.gamma = gamma
+        self.testing = testing
+        self.trial_name = trial_name
+        self.cam = cam
+        self.marker = marker
+        self.frame_number = frame_number
+
+    @classmethod
+    def from_yaml(cls, config_path: str):
+        yaml = YAML()
+        with open(config_path, "r") as f:
+            project = yaml.load(f)
+        d = project['autocorrect']
+        return cls(d['image']['search_radius'],
+                   d['image']['threshold'],
+                   d['image']['krad'],
+                   d['image']['gsigma'],
+                   d['image']['img_wt'],
+                   d['image']['blur_wt'],
+                   d['image']['gamma'],
+                   d['testing']['testing'],
+                   d['testing']['trial_name'],
+                   d['testing']['cam'],
+                   d['testing']['marker'],
+                   d['testing']['frame_num'])
+
+    def to_yaml(self):
+        return {'image': {'search_radius':self.search_radius,
+                          'threshold':self.threshold,
+                          'krad':self.krad,
+                          'gsigma':self.gsigma,
+                          'img_wt':self.img_wt,
+                          'blur_wt':self.blur_wt,
+                          'gamma':self.gamma},
+                'testing': {'testing':self.testing,
+                            'trial_name':self.trial_name,
+                            'cam':self.cam,
+                            'marker':self.marker,
+                            'frame_number':self.frame_number}}
+
+        
 
 
 class Trial(ABC):
