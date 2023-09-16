@@ -27,6 +27,7 @@ def create_xrommtools_project(working_dir=os.getcwd(),
                               maxiters=150000) -> Project:
     '''Create a new xrommtools project'''
     # Create a fake video to pass into the deeplabcut workflow
+    working_dir = os.path.normpath(working_dir)
     blank_frame = np.zeros((480, 480, 3), np.uint8)
     video_path = os.path.join(working_dir, 'tmp.avi')
     # Should error if a file called tmp.avi already exists in the folder
@@ -47,12 +48,15 @@ def create_xrommtools_project(working_dir=os.getcwd(),
                                                     copy_videos=True)
 
     # Only supports 2 cameras right now, will add more in the future
-    if network_arch == NetworkMode.PER_CAM:
+    if network_arch == NetworkMode.PER_CAM.value:
         dlc_config_path_cam2 = deeplabcut.create_new_project(f'{task}_cam2',
                                                              experimenter,
                                                              [video_path],
                                                              create_folder,
                                                              copy_videos=True)
+        network = PerCamNetworkConfig(dlc_config_path,
+                                      dlc_config_path_cam2,
+                                      maxiters)
     if not os.path.exists(working_dir):
         os.mkdir(working_dir)
 
@@ -61,14 +65,10 @@ def create_xrommtools_project(working_dir=os.getcwd(),
         project = Project.from_yaml(config_path)
     else:
         match(network_arch):
-            case NetworkMode.SINGLE_NETWORK:
+            case NetworkMode.SINGLE_NETWORK.value:
                 network = SingleNetworkConfig(dlc_config_path, maxiters)
-            case NetworkMode.PER_CAM:
-                network = PerCamNetworkConfig(dlc_config_path,
-                                              dlc_config_path_cam2,
-                                              maxiters)
-            case NetworkMode.RGB:
-                network = RGBNetworkConfig(dlc_config_path, maxiters)
+            case NetworkMode.RGB.value:
+                network = RGBNetworkConfig(dlc_config_path, maxiters, False, False)
             case _:
                 raise SyntaxError('Invalid value for network arch',
                                   'Network arch must be one of',
