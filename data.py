@@ -370,16 +370,16 @@ class RGBNetworkTrial(XrommToolsTrial):
     def rgb_path(self):
         return self._rgb_path
 
+    # Change default strategy to whichever one performs the best
     def __init__(self,
                  trial_path: str,
                  codec='avc1',
-                 strategy=ExtraFrameStrategy.EMPTY):
+                 strategy=RGBStrategy.EMPTY.value):
         super().__init__(trial_path)
         self._rgb_path = os.path.join(self.trial_path,
                                       self.trial_name + "_rgb.avi")
         self.merge_rgb(codec, strategy)
 
-    # Change default strategy to whichever one performs the best
     def merge_rgb(self,
                   codec,
                   strategy):

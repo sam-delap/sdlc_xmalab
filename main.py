@@ -24,7 +24,9 @@ from data import AutocorrectSettings, Trial
 def create_xrommtools_project(working_dir=os.getcwd(),
                               experimenter='NA',
                               network_arch=NetworkMode.SINGLE_NETWORK,
-                              maxiters=150000) -> Project:
+                              maxiters=150000,
+                              crossed_markers=False,
+                              swapped_markers=False) -> Project:
     '''Create a new xrommtools project'''
     # Create a fake video to pass into the deeplabcut workflow
     working_dir = os.path.normpath(working_dir)
@@ -68,59 +70,17 @@ def create_xrommtools_project(working_dir=os.getcwd(),
             case NetworkMode.SINGLE_NETWORK.value:
                 network = SingleNetworkConfig(dlc_config_path, maxiters)
             case NetworkMode.RGB.value:
-                network = RGBNetworkConfig(dlc_config_path, maxiters, False, False)
+                network = RGBNetworkConfig(dlc_config_path, maxiters, crossed_markers, swapped_markers)
             case _:
-                raise SyntaxError('Invalid value for network arch',
-                                  'Network arch must be one of',
-                                  [arch.value for arch in NetworkMode])
+                raise SyntaxError('Invalid value for network arch'
+                                  + 'Network arch must be one of'
+                                  + ' '.join([arch.value for arch in NetworkMode]))
 
-        project = Project(config_path,
+        project = Project(task,
+                          config_path,
                           experimenter,
                           network,
                           AutocorrectSettings())
-    if isinstance(path_config_file, str):
-        template = f"""
-    # Project vars
-    task: {task}
-    experimenter: {experimenter}
-    config_path: {config_path}
-
-    # Dataset vars
-    training_dataset_name: MyData
-
-    # Per-trial vars
-    num_tracked_frames: 0
-
-    # Network vars
-    dlc_config_path: {dlc_config_path}
-    (only when doing a per cam)
-    dlc_config_path_cam#:
-
-    maxiters: 150000
-    tracking_mode: 2D
-
-    (only when doing an RGB)
-    swapped_markers: false
-    crossed_markers: false
-
-    # Autocorrect vars
-    search_area: 15
-    threshold: 8
-    krad: 17
-    gsigma: 10
-    img_wt: 3.6
-    blur_wt: -2.9
-    gamma: 0.1
-
-    # Use when testing autocorrrect filtering
-    trial_name: your_trial_here
-    cam: cam1
-    frame_num: 1
-    marker: your_marker_here
-    test_autocorrect: false
-
-        """
-    dlc_project_path = dlc_config_path[:dlc_config_path.find("config")]
     project.to_yaml()
     # Remove auto-generated labeled data and dummy video
     try:
