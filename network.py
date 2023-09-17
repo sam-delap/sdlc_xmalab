@@ -113,6 +113,22 @@ class SingleNetworkConfig(NetworkConfig):
         self._dlc_project_path = dlc_config_path[:dlc_config_path.find('config')]
         self._max_iters = max_iters
 
+
+    def create_training_dataset(self) -> None:
+        deeplabcut.create_training_dataset(self.dlc_config_path)
+
+    def train_network(self) -> None:
+        deeplabcut.train_network(self.dlc_config_path)
+
+    def analyze_videos(self) -> None:
+        pass
+
+    def create_labeled_videos(self) -> None:
+        pass
+
+    def update_config_refs(self) -> None:
+        raise NotImplementedError('Need to update all other config refs')
+
     def to_yaml(self):
         '''Structure network settings data so it can be sent to yaml'''
         d = {'network_arch': self._network_arch.value,
@@ -120,15 +136,6 @@ class SingleNetworkConfig(NetworkConfig):
              'max_iters': self.max_iters}
              
         return d
-
-    def update_config_refs(self) -> None:
-        raise NotImplementedError('Need to update all other config refs')
-
-    def create_training_dataset(self) -> None:
-        deeplabcut.create_training_dataset(self.dlc_config_path)
-
-    def train_network(self) -> None:
-        deeplabcut.train_network(self.dlc_config_path)
 
 
 class PerCamNetworkConfig(NetworkConfig):
@@ -202,6 +209,12 @@ class PerCamNetworkConfig(NetworkConfig):
         deeplabcut.train_network(self.dlc_config_path, maxiters=self.max_iters)
         deeplabcut.train_network(self.dlc_config_path_cam2, maxiters=self.max_iters)
 
+    def analyze_videos(self):
+        pass
+
+    def create_labeled_videos(self):
+        pass
+
     @staticmethod
     def update_config_refs(new_config_path: str):
         raise NotImplementedError
@@ -257,6 +270,21 @@ class RGBNetworkConfig(NetworkConfig):
         self._max_iters = max_iters
         self._swapped_markers = swapped_markers
         self._crossed_markers = crossed_markers
+
+    def create_training_dataset(self) -> None:
+        deeplabcut.create_training_dataset(self.dlc_config_path)
+
+    def train_network(self) -> None:
+        deeplabcut.train_network(self.dlc_config_path)
+
+    def analyze_videos(self) -> None:
+        pass
+
+    def create_labeled_videos(self) -> None:
+        pass
+
+    def update_config_refs(self) -> None:
+        raise NotImplementedError('Need to update all other config refs')
 
     def to_yaml(self):
         '''Structure network settings data so it can be sent to yaml'''
