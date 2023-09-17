@@ -116,6 +116,10 @@ class Trial(ABC):
         pass
 
     @abstractmethod
+    def vid_to_pngs(self):
+        pass
+
+    @abstractmethod
     def xma_to_dlc(self):
         pass
 
@@ -177,8 +181,7 @@ class XrommToolsTrial(Trial):
         elif self._csv_path is None:
             raise FileNotFoundError('Couldn\'t find pointsfile')
 
-        self._csv = pd.read_csv(self.csv_path, sep=',', header=None)
-        self._csv = self._csv.loc[1:,].reset_index(drop=True)
+        self._csv = pd.read_csv(self.csv_path)
         self._csv = self._csv.dropna(how='all')
 
         names = self._csv.columns.values
@@ -250,12 +253,13 @@ class SingleNetworkTrial(XrommToolsTrial):
     '''J.D. Single Network (both views) workflow'''
 
     def xma_to_dlc(self,
-                   dlc_config_path: str,
+                   dlc_project_path: str,
                    dataset_name: str,
                    experimenter: str):
         '''Formats XMAlab pointsfile for DLC, extracts corresponding frames'''
         relnames = []
-        new_path = os.path.join(dlc_config_path,
+        print(self.csv.index)
+        new_path = os.path.join(dlc_project_path,
                                 "labeled-data",
                                 dataset_name)
         h5_save_path = os.path.join(new_path,
@@ -266,31 +270,41 @@ class SingleNetworkTrial(XrommToolsTrial):
             contents = os.listdir(new_path)
         except FileNotFoundError:
             os.makedirs(new_path)
-        if contents:
+            contents = None
+
+        if contents is not None:
             raise FileExistsError(f'Dataset folder {dataset_name} exists')
 
-        for i, video_path in enumerate([self.cam1_path, self.cam2_path]):
-            print(f"Extracting camera {i} trial images and 2D points...")
+        for i, video_path in enumerate([self.cam1_path, self.cam2_path], 1):
+            print(f"Extracting camera {i} trial images...")
 
             # extract 2D points data
             xpos = self.csv.iloc[:, 0 + (i-1)*2::4]
             ypos = self.csv.iloc[:, 1 + (i-1)*2::4]
             data = pd.concat([xpos, ypos], axis=1).sort_index(axis=1)
 
-            # if video file is actually folder of frames
             relpath = os.path.join("labeled-data", dataset_name)
-            if os.path.isdir():
+            max_index = int(self.csv.index.max())
+            # if video file is actually folder of frames
+            if os.path.isdir(video_path):
                 imgs = os.listdir(video_path)
 
+                # Assumes images are in order within folder
                 for count, img in enumerate(imgs):
-                    raise NotImplementedError('Check against CSV here')
-                    frame_num = (count + 1).zfill(4)
+                    if count > max_index:
+                        break
+                    elif count not in self.csv.index:
+                        continue
+
+                    frame_num = str(count + 1).zfill(4)
                     image = cv2.imread(os.path.join(video_path, img))
-                    relname = os.path.join(relpath,
-                                           self.trial_name,
-                                           f"_cam{i}_{frame_num}")
+                    new_img_name = self.trial_name + f"_cam{i}_{frame_num}.png"
+
+                    relname = os.path.join(relpath, new_img_name)
                     relnames.append(relname)
-                    cv2.imwrite(relname, image)
+
+                    image_path = os.path.join(new_path, new_img_name)
+                    cv2.imwrite(image_path, image)
 
             # extract frames from video and convert to png
             else:
@@ -298,18 +312,27 @@ class SingleNetworkTrial(XrommToolsTrial):
                 success, image = cap.read()
                 count = 0
                 while success:
-                    raise NotImplementedError('Check against CSV here')
-                    relname = os.path.join(relpath,
-                                           self.trial_name,
-                                           f"_cam{i}_{frame_num}")
+                    if count > max_index:
+                        break
+                    elif count not in self.csv.index:
+                        continue
+
+                    frame_num = str(count + 1).zfill(4)
+                    new_img_name = self.trial_name + f"_cam{i}_{frame_num}.png"
+
+                    relname = os.path.join(relpath, new_img_name)
                     relnames.append(relname)
-                    cv2.imwrite(relname, image)
+
+                    image_path = os.path.join(new_path, new_img_name)
+                    cv2.imwrite(image_path, image)
+
                     success, image = cap.read()
                     count += 1
                 cap.release()
 
             # Format data
-            dataFrame = pd.DataFrame()
+            print('Extracting 2D Points...')
+            print(relnames)
             temp = np.empty((data.shape[0], 2,))
             temp[:] = np.nan
             for i, bodypart in enumerate(self.bodyparts):
@@ -373,14 +396,14 @@ class PerCamNetworkTrial(XrommToolsTrial):
                 # if video file is actually folder of frames
                 if os.path.isdir(video_path):
                     imgs = os.listdir(video_path)
-                    relpath = os.path.join("labeled-data",
+                    abspath = os.path.join("labeled-data",
                                            dataset_name + f"_cam{i}")
 
                     for count, img_name in enumerate(imgs):
                         raise NotImplementedError('Check against CSV here')
                         frame_num = (count + 1).zfill(4)
                         image = cv2.imread(os.path.join(video_path, img_name))
-                        relname = os.path.join(relpath,
+                        relname = os.path.join(abspath,
                                                self.trial_name
                                                + f"_{frame_num}.png")
                         relnames = relnames.append(relname)
@@ -388,13 +411,13 @@ class PerCamNetworkTrial(XrommToolsTrial):
 
                 # otherwise, extract frames from video and convert to png
                 else:
-                    relpath = os.path.join("labeled-data", dataset_name)
+                    abspath = os.path.join("labeled-data", dataset_name)
                     cap = cv2.VideoCapture(video_path)
                     success, image = cap.read()
                     count = 1
                     while success:
                         frame_num = count.zfill(4)
-                        relname = os.path.join(relpath,
+                        relname = os.path.join(abspath,
                                                self.trial_name
                                                + f"_{frame_num}.png")
                         relnames.append(relname)
@@ -529,13 +552,13 @@ class RGBNetworkTrial(XrommToolsTrial):
         print("Merged RGB video created at", self.rgb_path)
 
     def xma_to_dlc(self,
-                   dlc_config_path: str,
+                   dlc_project_path: str,
                    dataset_name: str,
                    compression: str,
                    swapped: bool,
                    crossed: bool):
         '''Convert XMAlab data to DeepLabCut format'''
-        new_path = os.path.join(dlc_config_path,
+        new_path = os.path.join(dlc_project_path,
                                 'labeled-data',
                                 dataset_name)
         try:
@@ -634,7 +657,7 @@ class RGBNetworkTrial(XrommToolsTrial):
         unique_frames = sorted(unique_frames_set)
         print("Importing frames: ")
         print(unique_frames)
-        df['frame_index']=[substitute_data_relpath + f'/{trial_name}_rgb_'+str(index).zfill(4)+'.png' for index in unique_frames]
+        df['frame_index']=[substitute_data_abspath + f'/{trial_name}_rgb_'+str(index).zfill(4)+'.png' for index in unique_frames]
         df['scorer']=project['experimenter']
         df = df.melt(id_vars=['frame_index','scorer'])
         new = df['variable'].str.rsplit("_",n=1,expand=True)
