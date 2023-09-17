@@ -207,7 +207,7 @@ def create_training_dataset(project: Project, dataset_name):
 
     for folder in os.listdir(project.training_data_path):
         # Skip hidden files/folders
-        if folder.statswith('.'):
+        if folder.startswith('.'):
             continue
 
         trial_path = os.path.join(project.training_data_path, folder)
@@ -218,11 +218,11 @@ def create_training_dataset(project: Project, dataset_name):
 
     match project.network.network_arch:
         case NetworkMode.SINGLE_NETWORK:
-            trial.trial.xma_to_dlc(project.network.dlc_config_path,
+            trial.xma_to_dlc(project.network.dlc_config_path,
                                    dataset_name,
                                    project.experimenter)
         case NetworkMode.PER_CAM:
-            trial.trial.xma_to_dlc(project.network.dlc_config_path,
+            trial.xma_to_dlc(project.network.dlc_config_path,
                                    project.network.dlc_config_path_cam2,
                                    dataset_name,
                                    project.experimenter)
@@ -237,17 +237,18 @@ def create_training_dataset(project: Project, dataset_name):
 
 def train_network(project: Project):
     '''Start training xrommtools-compatible data'''
+    project.network.train_network()
     # Get all trial folders, ignoring hidden folders
-    trials = [folder for folder in os.listdir(data_path) if os.path.isdir(os.path.join(data_path, folder)) and not folder.startswith('.')]
-    for trial in trials:
-        merge_rgb(f'{data_path}/{trial}')
-        substitute_data_relpath = "labeled-data/" + project['dataset_name']
-        substitute_data_abspath = os.path.join(os.path.split(project['path_config_file'])[0],substitute_data_relpath)
-        extract_matched_frames_rgb(project, f'{data_path}/{trial}', substitute_data_abspath, range(1, project['nframes'] + 1))
-        splice_xma_to_dlc(project, f'{data_path}/{trial}', swap=project['swapped_markers'], cross=project['crossed_markers'])
+#    trials = [folder for folder in os.listdir(data_path) if os.path.isdir(os.path.join(data_path, folder)) and not folder.startswith('.')]
+#    for trial in trials:
+#        merge_rgb(f'{data_path}/{trial}')
+#        substitute_data_relpath = "labeled-data/" + project['dataset_name']
+#        substitute_data_abspath = os.path.join(os.path.split(project['path_config_file'])[0],substitute_data_relpath)
+#        extract_matched_frames_rgb(project, f'{data_path}/{trial}', substitute_data_abspath, range(1, project['nframes'] + 1))
+#        splice_xma_to_dlc(project, f'{data_path}/{trial}', swap=project['swapped_markers'], cross=project['crossed_markers'])
 
-    deeplabcut.create_training_dataset(project['path_config_file'])
-    deeplabcut.train_network(project['path_config_file'], maxiters=project['maxiters'])
+#    deeplabcut.create_training_dataset(project['path_config_file'])
+#    deeplabcut.train_network(project['path_config_file'], maxiters=project['maxiters'])
 
 def analyze_videos(project_path=os.getcwd()):
     '''Analyze videos with a pre-existing network'''
@@ -275,24 +276,13 @@ def analyze_videos(project_path=os.getcwd()):
             deeplabcut.analyze_videos(project['path_config_file'], video_path, destfolder=destfolder, save_as_csv=True)
             split_dlc_to_xma(project, trial)
 
-def autocorrect_trial(project_path=os.getcwd()): #try 0.05 also
+def autocorrect(project: Project): #try 0.05 also
     '''Do XMAlab-style autocorrect on the tracked beads'''
-    # Open the config
-    project = load_project(project_path)
-
     # Error if trials directory is empty
-    new_data_path = os.path.join(project_path, 'trials')
-    trials = [folder for folder in os.listdir(new_data_path) if os.path.isdir(os.path.join(new_data_path, folder)) and not folder.startswith('.')]
-    if len(trials) <= 0:
-        raise FileNotFoundError(f'Empty trials directory found. Please put trials to be analyzed after training into the {project_path}/trials folder')
+    if len(os.listdir(project.novel_data_path)) <= 0:
+        raise FileNotFoundError(f'Empty trials directory found. Please put trials to be analyzed after training into the {project.novel_data_path} folder')
 
-    # Establish project vars
-    yaml = YAML()
-    with open(project['path_config_file']) as dlc_config:
-        dlc = yaml.load(dlc_config)
-
-    iteration = dlc['iteration']
-
+    # Load DLC iteration (not sure if needed)
     # For each trial
     for trial in trials:
         # Find the appropriate pointsfile
@@ -1005,4 +995,25 @@ def analyze_marker_similarity_project(project_path):
             yaml.dump(project, file)
         marker_similarity[(trial1, trial2)] = abs(analyze_marker_similarity_trial(project_path))
     
+    return marker_similarity
+
+def analyze_marker_similarity_trial(project_path: str):
+    '''Analyze marker similarity for a pair of trials. Returns the mean difference for paired marker positions (X - X, Y - Y for each marker)'''
+    project = load_project(project_path)
+
+    # Find CSVs for each trial
+    trial1_path = os.path.join(f'{project_path}/trials', project['trial_1_name'])
+    trial2_path = os.path.join(f'{project_path}/trials', project['trial_2_name'])
+    
+    # Get a list of markers that each trial have in commmon
+    markers_in_common = [marker for marker in get_bodyparts_from_xma(trial1_path,
+                                                                     mode='rgb',
+                                                                     split_markers=False, 
+                                                                     crossed_markers=False) if marker in get_bodyparts_from_xma(trial2_path, mode='rgb', split_markers=False, crossed_markers=False)]
+    bodyparts_xy = [f'{marker}_X' for marker in markers_in_common] + [f'{marker}_Y' for marker in markers_in_common]
+    trial1_csv = pd.read_csv(os.path.join(trial1_path, project['trial_1_name'] + '.csv'))
+    trial2_csv = pd.read_csv(os.path.join(trial2_path, project['trial_2_name'] + '.csv'))
+
+    marker_similarity = sum([(trial1_csv[marker] - trial2_csv[marker]).sum() / (len(trial1_csv[marker]) + len(trial2_csv[marker])) for marker in bodyparts_xy]) / len(bodyparts_xy)
+
     return marker_similarity
