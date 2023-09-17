@@ -1,8 +1,7 @@
 '''Create, read, and modify xrommtools projects'''
 import os
 from ruamel.yaml import YAML
-from network import SingleNetworkConfig, PerCamNetworkConfig, RGBNetworkConfig
-from network import NetworkMode
+from network import *
 from data import AutocorrectSettings
 
 
@@ -14,7 +13,7 @@ class Project():
                  project_path: str,
                  config_path: str,
                  experimenter: str,
-                 network: SingleNetworkConfig | PerCamNetworkConfig | RGBNetworkConfig,
+                 network: NetworkConfig,
                  autocorrect_settings=AutocorrectSettings()):
         '''Create and initialize a new xrommtools project'''
         self._task = task
@@ -29,38 +28,38 @@ class Project():
         self._autocorrect_settings = autocorrect_settings
 
     @property
-    def task(self):
+    def task(self) -> str:
         return self._task
 
     @property
-    def project_path(self):
+    def project_path(self) -> str:
         return self._project_path
 
     @property
-    def config_path(self):
+    def config_path(self) -> str:
         return self._config_path
 
     @config_path.setter
-    def config_path(self, value):
+    def config_path(self, value: str) -> None:
         if not os.path.exists(value):
             raise FileNotFoundError(f"Couldn't find config at {value}")
         raise NotImplementedError('Need to update all other config refs')
         self.update_config_refs()
 
     @property
-    def training_data_path(self):
+    def training_data_path(self) -> str:
         return self._training_data_path
 
     @property
-    def novel_data_path(self):
+    def novel_data_path(self) -> str:
         return self._novel_data_path
 
     @property
-    def network(self):
+    def network(self) -> NetworkConfig:
         return self._network
 
     @property
-    def autocorrect_settings(self):
+    def autocorrect_settings(self) -> AutocorrectSettings:
         return self._autocorrect_settings
 
     def update_config_refs(self):
