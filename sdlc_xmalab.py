@@ -53,7 +53,7 @@ def create_new_project(working_dir=os.getcwd(), experimenter='NA', mode='2D'):
     nframes: 0
     maxiters: 150000
     tracking_threshold: 0.1 # Fraction of total frames included in training sample
-    tracking_mode: 2D
+    tracking_mode: {mode}
     swapped_markers: false
     crossed_markers: false
 
