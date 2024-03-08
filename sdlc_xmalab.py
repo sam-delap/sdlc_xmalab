@@ -166,8 +166,7 @@ def load_project(working_dir=os.getcwd()):
     default_bodyparts = ['bodypart1', 'bodypart2', 'bodypart3', 'objectA']
 
     path_to_trial = os.path.join(working_dir, 'trainingdata', trial)
-    bodyparts = get_bodyparts_from_xma(
-        project,
+    bodyparts = data_processor.get_bodyparts_from_xma(
         path_to_trial,
         mode=project['tracking_mode'])
     
@@ -190,15 +189,11 @@ def load_project(working_dir=os.getcwd()):
             dlc_yaml = dlc_config_loader.load(dlc_config)
         # Better conditional logic could definitely be had to reduce function calls here
         if dlc_yaml['bodyparts'] == default_bodyparts:
-            dlc_yaml['bodyparts'] = get_bodyparts_from_xma(trial_path, 
-                                                           project['tracking_mode'],
-                                                           project['swapped_markers'],
-                                                           project['crossed_markers'])
+            dlc_yaml['bodyparts'] = data_processor.get_bodyparts_from_xma(path_to_trial,
+                                                                          mode=project['tracking_mode'])
 
-        elif dlc_yaml['bodyparts'] != get_bodyparts_from_xma(trial_path,
-                                                             project['tracking_mode'],
-                                                             project['swapped_markers'],
-                                                             project['crossed_markers']):
+        elif dlc_yaml['bodyparts'] != data_processor.get_bodyparts_from_xma(path_to_trial,
+                                                                            mode=project['tracking_mode']):
             raise SyntaxError('XMAlab CSV marker names are different than DLC bodyparts.')
 
         with open(project['path_config_file_2'], 'w') as dlc_config:
