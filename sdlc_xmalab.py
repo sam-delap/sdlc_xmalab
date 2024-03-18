@@ -248,7 +248,7 @@ def analyze_videos(working_dir=os.getcwd()):
             data_processor = XMADataProcessor(config=project)
             video_path = f'{working_dir}/trials/{trial}/{trial}_rgb.avi'
             if not os.path.exists(video_path):
-                data_processor.make_rgb_video(os.path.join(working_dir, 'trials', trial))
+                data_processor.make_rgb_video(os.path.join(working_dir, 'trials'))
             destfolder = f'{working_dir}/trials/{trial}/it{iteration}/'
             deeplabcut.analyze_videos(project['path_config_file'], video_path, destfolder=destfolder, save_as_csv=True)
             split_dlc_to_xma(project, trial)
