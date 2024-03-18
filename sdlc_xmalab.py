@@ -566,7 +566,7 @@ def split_dlc_to_xma(project, trial, save_hdf=True):
 
     df = pd.read_csv(f'{trial_path}/it{iteration}/{csv_path}', skiprows=1)
     df.index = df['bodyparts']
-    df = df.drop(columns=df.columns[[df.loc['coords'] == 'likelihood']])
+    df = df.drop(columns=df.columns[df.loc['coords'] == 'likelihood'])  
     df = df.drop(columns=[column for column in df.columns if column not in rgb_parts and column not in [f'{bodypart}.1' for bodypart in rgb_parts]])
     df.columns = bodyparts_xy
     df = df.drop(index='coords')
