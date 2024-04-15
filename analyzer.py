@@ -48,7 +48,7 @@ class Analyzer:
                 trial_path =  os.path.join(self._trials_path, trial)
                 video_path = f'{trial_path}/{trial}_rgb.avi'
                 if not os.path.exists(video_path):
-                    self._data_processor.make_rgb_video(trial_path)
+                    self._data_processor.make_rgb_video(self._trials_path)
                 destfolder = f'{trial_path}/it{iteration}/'
                 deeplabcut.analyze_videos(self._dlc_config, video_path, destfolder=destfolder, save_as_csv=True)
                 self._split_dlc_to_xma(trial)

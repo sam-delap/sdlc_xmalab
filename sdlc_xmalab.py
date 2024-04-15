@@ -17,7 +17,7 @@ from autocorrector import Autocorrector
 from network import Network
 from xma_data_processor import XMADataProcessor
 
-
+# TODO: Prevent path_config_file_2 from being dumped at the bottom of the config
 def create_new_project(working_dir=os.getcwd(), experimenter='NA', mode='2D'):
     '''Create a new xrommtools project'''
     if not os.path.exists(working_dir):
@@ -192,15 +192,13 @@ def load_project(working_dir=os.getcwd()):
             dlc_yaml = dlc_config_loader.load(dlc_config)
         # Better conditional logic could definitely be had to reduce function calls here
         if dlc_yaml['bodyparts'] == default_bodyparts:
-            dlc_yaml['bodyparts'] = get_bodyparts_from_xma(trial_path, 
-                                                           project['tracking_mode'],
-                                                           project['swapped_markers'],
-                                                           project['crossed_markers'])
+            dlc_yaml['bodyparts'] = get_bodyparts_from_xma(project,
+                                                           path_to_trial,
+                                                           mode=project['tracking_mode'])
 
-        elif dlc_yaml['bodyparts'] != get_bodyparts_from_xma(trial_path,
-                                                             project['tracking_mode'],
-                                                             project['swapped_markers'],
-                                                             project['crossed_markers']):
+        elif dlc_yaml['bodyparts'] != get_bodyparts_from_xma(project,
+                                                             path_to_trial,
+                                                             mode=project['tracking_mode']):
             raise SyntaxError('XMAlab CSV marker names are different than DLC bodyparts.')
 
         with open(project['path_config_file_2'], 'w') as dlc_config:
